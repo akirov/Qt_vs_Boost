@@ -15,14 +15,15 @@ Server::Server(int port, int numChannels, int tickInt) :
     mStopRequested(false),
     mNewConnection(),
     mChan2Threads(),
-    mConn2Threads()
+    mConnections()
 {
+    LOG( "In Server::Server()" << std::endl );
 }
 
 
 Server::~Server()
 {
-    LOG( "In ~Server()" << std::endl );
+    LOG( "In Server::~Server()" << std::endl );
 
     if ( not mStopRequested )
         Stop();  // This should be done before we get here!
@@ -31,7 +32,7 @@ Server::~Server()
 
 void Server::Start()
 {
-    std::cout << "Server thread : " << boost::this_thread::get_id() << std::endl;
+    LOG( "Server thread : " << boost::this_thread::get_id() << std::endl );
 
     // Create the channels
     try
@@ -42,6 +43,8 @@ void Server::Start()
             boost::shared_ptr<boost::thread> thread(
                       new boost::thread(boost::bind(&Channel::Start, timer.get())));
             mChan2Threads[timer] = thread;
+            LOG("Created timer " << (i+1) << ":" << timer.get() << " in a thread "
+                 << thread.get() << ", id " << thread->get_id() << std::endl);
         }
     }
     catch(std::exception& e)
@@ -78,24 +81,34 @@ void Server::Start()
      * handler invokation? We can, but it will be complex...
      * Or just have a dedicated thread with an io_service per Connection? Yes.*/
 
-    std::vector<Channel*> channels;
-    for ( ChannelToThreadMap::const_iterator it=mChan2Threads.begin();
-          it != mChan2Threads.end(); ++it )
+    try
     {
-        channels.push_back((it->first).get());
+        std::vector<Channel*> channels;
+        for ( ChannelToThreadMap::const_iterator it=mChan2Threads.begin();
+              it != mChan2Threads.end(); ++it )
+        {
+            channels.push_back((it->first).get());
+        }
+
+        // Create a Connection
+        boost::shared_ptr<Connection> connection(new Connection(channels, this));  // Ref count is 1
+
+        // Asynchronously accept the new connection
+        mAcceptor.async_accept(connection->getSocket(),
+                               boost::bind(&Server::incomingConnection, this,
+                                           connection->shared_from_this(), _1));  // Ref count becomes 2
+
+        // Store connection pointer in the Server to be able to stop it later
+        mNewConnection = connection.get();
+    }  // Temp "connection" is destroyed and ref count becomes 1 (referenced from the io_service)
+    catch( std::exception& e )
+    {
+        LOG( "Error creating client connection acceptor: " << e.what() << std::endl );
+        Stop();
+        return;
     }
 
-    // Create a Connection
-    boost::shared_ptr<Connection> connection(new Connection(channels, this));
-
-    // Asynchronously accept the new connection
-    mAcceptor.async_accept(connection->getSocket(),
-                boost::bind(&Server::incomingConnection, this, connection, _1));
-
-    // Store the connection in the server to be able to close it later
-    mNewConnection = connection;
-
-    mIOService.run();
+    mIOService.run();  // Blocks!
 }
 
 
@@ -107,26 +120,25 @@ void Server::Stop()
     mNewConnection->StopRequest();
 
     // Stop the existing connections
-    for( ConnToThreadMap::iterator it = mConn2Threads.begin();
-         it != mConn2Threads.end(); /* ++it */)
+    for( std::set< Connection* >::iterator it = mConnections.begin();
+         it != mConnections.end(); /* ++it */)
     {
-        it->first.get()->StopRequest();
-        it->second.get()->join();
-        LOG( "Connection thread " << it->second.get() << " joined" << std::endl );
-        mConn2Threads.erase(it++);
+        (*it)->StopRequest();  // Also waits for Connection's thread to join...
+        mConnections.erase(it++);
     }
 
     // Stop the channels
     for( ChannelToThreadMap::iterator it = mChan2Threads.begin();
          it != mChan2Threads.end(); /* ++it */)
     {
-        it->first.get()->StopRequest();
-        it->second.get()->join();
-        LOG( "Thread " << it->second.get() << " joined" << std::endl );
+        it->first->StopRequest();
+        it->second->join();
+        LOG( "Channel thread " << it->second.get() << ", id "
+              << it->second->get_id() << " joined" << std::endl );
         mChan2Threads.erase(it++);
     }
 
-    // Stop mIOService
+    // Stop Server's io_service event lop
     mIOService.stop();
 }
 
@@ -136,66 +148,80 @@ void Server::incomingConnection( boost::shared_ptr<Connection> connection,
 {
     LOG("New connection!" << std::endl);
 
-    // Check for errors!
+//  if ( mConnections.size() > 1 ) { Stop(); return; }  // XXX For testing only!
+
+    // XXX Check for errors!
 
     // Return if we are about to stop
     if ( mStopRequested )
     {
-        LOG("Server is stopping. Cancelling accepting the new connection...");
+        LOG("Server is stopping. Cancel accepting the new connection..."
+            << std::endl);
         return;
     }
 
-    // Connect Channel signals to Connection slots ???
+    // Connect Channel signals to Connection slots ?
 
-    // Create a thread to Start() and server the Connection
-    boost::shared_ptr<boost::thread> thread(
-          new boost::thread(boost::bind(&Connection::Start, connection.get())));
+    // Create and start Connection's worker thread
+    connection->Start();
 
-    mConn2Threads[connection] = thread;
+    // Wait a little for the thread to start and create new reference
+    ::sleep(1);
+
+    mConnections.insert(connection.get());
 
     // Add new async wait for new client connections
-    std::vector<Channel*> channels;
-    for ( ChannelToThreadMap::const_iterator it=mChan2Threads.begin();
-          it != mChan2Threads.end(); ++it )
+    try
     {
-        channels.push_back((it->first).get());
+        std::vector<Channel*> channels;
+        for ( ChannelToThreadMap::const_iterator it=mChan2Threads.begin();
+              it != mChan2Threads.end(); ++it )
+        {
+            channels.push_back((it->first).get());
+        }
+
+        // Create a new Connection
+        boost::shared_ptr<Connection> newConn(new Connection(channels, this));
+
+        // Asynchronously accept the new connection
+        mAcceptor.async_accept(newConn->getSocket(),
+                               boost::bind(&Server::incomingConnection, this,
+                                           newConn->shared_from_this(), _1));
+
+        // Store the connection in the server to be able to stop it later
+        mNewConnection = newConn.get();  // connection's ref is decreased!
     }
-
-    // Create a new Connection
-    boost::shared_ptr<Connection> newConn(new Connection(channels, this));
-
-    // Asynchronously accept the new connection
-    mAcceptor.async_accept(newConn->getSocket(),
-                   boost::bind(&Server::incomingConnection, this, newConn, _1));
-
-    // Store the connection in the server to be able to close it later
-    mNewConnection = newConn;
+    catch(std::exception& e)
+    {
+        LOG( "Error creating new client connection acceptor: " << e.what()
+              << std::endl );
+        Stop();
+        return;
+    }
 }
 
 
 void Server::closingConnection(Connection* conn)
 {
-    // Lock the mutex!
+    // Lock a mutex!
 
     if ( mStopRequested )
-        return;  // We will wait for the threads in Stop().
+        return;  // We will do the cleanup in Stop().
 
-    for ( ConnToThreadMap::iterator it = mConn2Threads.begin();
-          it != mConn2Threads.end(); ++it )
+    /* Post a request in Server's io_service to delete the Connection?
+     * No need for this, if we are not waiting for Connection's thread here. */
+
+    std::set< Connection* >::iterator it = mConnections.find(conn);
+    if ( it != mConnections.end() )
     {
-        if ( it->first.get() == conn )
-        {
-            LOG( "Connection ref count: " << it->first.use_count() << std::endl );
-#if 0  // This is called in Connection's context! We can post it in Server's io_service...
-            it->second.get()->join();
-            LOG( "Thread " << it->second.get() << " joined" << std::endl );
-#endif // 0
-            LOG( "Deleting the connection from Server list" << std::endl );
-            mConn2Threads.erase(it);
-            return;
-        }
+        LOG( "Deleting " << conn << " connection from Server's list"
+              << std::endl );
+        mConnections.erase(it);
     }
-    LOG( "Connection " << conn << " not found!" << std::endl );
+    else
+    {
+        LOG( "Connection " << conn << " not found!" << std::endl );
+    }
 }
 
 
@@ -224,6 +250,7 @@ Channel::~Channel()
 
 void Channel::Start()
 {
+    ::srand(mId);
     mDLTimer.async_wait(boost::bind(&Channel::onTick, this));
     mChanIOService.run();
 }
@@ -233,13 +260,14 @@ void Channel::StopRequest()
 {
     boost::lock_guard<boost::mutex> lock(mTMutex);
     mStopRequested = true;
+    mDLTimer.cancel();  // XXX try or put an error code!
     mChanIOService.stop();
 }
 
 
 void Channel::onTick()
 {
-    LOG( "Channel tick. Thread : " << boost::this_thread::get_id() << std::endl );
+    LOG( "Channel tick in thread id: " << boost::this_thread::get_id() << std::endl );
 
     int num = ::rand() % 10;
 
@@ -250,6 +278,7 @@ void Channel::onTick()
      * Have a dedicated (UDP?) socket to another client's port for each Connection
      * in the Channel? Requires another socket in the Client too. No.
      * Use Connection's socket? Yes. */
+
     for( std::set<Connection*>::iterator it = mSubscribers.begin();
          it != mSubscribers.end(); ++it )
     {
@@ -266,7 +295,8 @@ void Channel::onTick()
 
     if( not mStopRequested /* and current time < next tick time? */ )
     {
-        mDLTimer.expires_at(mDLTimer.expires_at() + boost::posix_time::seconds(mTickInterval));
+        mDLTimer.expires_at(mDLTimer.expires_at() +
+                                     boost::posix_time::seconds(mTickInterval));
         mDLTimer.async_wait(boost::bind(&Channel::onTick, this));
     }
 }
@@ -298,15 +328,16 @@ Connection::Connection( const std::vector<Channel*>& channels, Server* server ) 
     mSocket(mConIOService),
     mStopRequested(false),
     mInBuff(),
-    mReceiving(false)
+    mReceiving(false),
+    mCThread()
 {
-    LOG("In Connection::Connection()" << std::endl);
+    LOG("Connection " << this << " created"<< std::endl);
 }
 
 
 Connection::~Connection()
 {
-    LOG("In Connection::~Connection()" << std::endl);
+    LOG("~Connection " << this << " is being destroyed"<< std::endl);
     if ( not mStopRequested )
         StopRequest();
 }
@@ -314,18 +345,35 @@ Connection::~Connection()
 
 void Connection::Start()
 {
-    LOG("In Connection::Start(), thread : " << boost::this_thread::get_id() << std::endl);
+    LOG("In Connection " << this << " Start(), caller thread id : "
+         << boost::this_thread::get_id() << std::endl);
 
-    // Add async read operation
+    // Create the worker thread
+    if ( (not mStopRequested) and (not mCThread) )
+    {
+        mCThread.reset(new boost::thread(boost::bind(&Connection::doStart, this)));
+    }
+}
+
+
+void Connection::doStart()
+{
+    LOG("In Connection " << this << " doStart(), worker thread : " << mCThread.get()
+         << ", id " << mCThread->get_id() << std::endl);
+
+    // Add async read operation. mConIOService holds Connection reference now!
     boost::asio::async_read_until(mSocket, mInBuff, '\n',
-                             boost::bind(&Connection::readyRead, this, _1, _2));
+               boost::bind(&Connection::readyRead, shared_from_this(), _1, _2));
 
     mConIOService.run();
 }
 
 
-void Connection::StopRequest()
+void Connection::StopRequest( bool waitForThread )
 {
+    LOG("Connection " << this << " StopRequest(), caller thread id : "
+         << boost::this_thread::get_id() << std::endl);
+
     // Lock a mutex?
 
     mStopRequested = true;
@@ -340,28 +388,49 @@ void Connection::StopRequest()
         }
     }
 
-    // Cancel pending async operations?
+    // Cancel pending async operations? Does it remove them???
+    mSocket.cancel();
 
-    // stop() the io_service
-    mConIOService.stop();
-
-    // Close the socket
+    // Close the socket (if it is open?)
+    mSocket.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
     mSocket.close();
 
+    // Wait a little if we are called from another thread to allow async op flush???
+    // Or cancel and delete pending async operations somehow???
+
     // Inform the Server!
-    mServer->closingConnection(this);  // XXX After this the Connection is invalid!!!
+    mServer->closingConnection(this);
+
+    // Stop the io_service (if it is started?). Do we need this???
+    // This will not allow async op flush and references to Connection may remain!!!
+//  mConIOService.stop();
+//  mConIOService.reset();  // Do we need this?
+
+    if ( mCThread and waitForThread )  // and (mCThread->get_id() != boost::this_thread::get_id()) ???
+    {
+        mCThread->join();
+        LOG("Thread " << mCThread.get() << " joined" << std::endl);
+        mCThread.reset();  // Do we need this?
+    }
 }
 
 
 void Connection::readyRead(const boost::system::error_code & err, size_t readBytes)
 {
-    LOG("In Connection::readyRead()" << std::endl);
+    LOG("In Connection " << this << " readyRead()" << std::endl);
 
-    // Check for an error!
-    if ((boost::asio::error::eof == err) || (boost::asio::error::connection_reset == err))
+    // Check for administrative shutdown
+    if ( mStopRequested or (boost::asio::error::operation_aborted == err) )
     {
-        LOG("Connection closed! Cleaning up...");
-        StopRequest();
+        LOG("Connection stopped!" << std::endl);
+        return;
+    }
+
+    // Check for disconnect (or any other error???)
+    if ( (boost::asio::error::eof == err) || (boost::asio::error::connection_reset == err) )
+    {
+        LOG("Connection closed!" << std::endl);
+        StopRequest(false);
         return;
     }
 
@@ -399,37 +468,44 @@ void Connection::readyRead(const boost::system::error_code & err, size_t readByt
     if ( not mStopRequested )
     {
         boost::asio::async_read_until(mSocket, mInBuff, '\n',
-                             boost::bind(&Connection::readyRead, this, _1, _2));
+               boost::bind(&Connection::readyRead, shared_from_this(), _1, _2));
     }
 }
 
 
 void Connection::sendRandom( int id, int num )
 {
-    LOG("In Connection::sendRandom(), thread : " << boost::this_thread::get_id() << std::endl);
+    LOG("In Connection::sendRandom(), thread id: " << boost::this_thread::get_id()
+         << std::endl);
 
     /* Call async_write() on Connection's socket from another thread? No.
      * Use signal/connect and post() to invoke a method (that will call wite)? */
     if ( not mStopRequested )
     {
-        mConIOService.post(boost::bind(&Connection::doSendRandom, this, id, num));  // Or dispatch() ?
+        mConIOService.post(boost::bind(&Connection::doSendRandom,
+                                       shared_from_this(), id, num));  // Or dispatch() ?
     }
 }
 
 
 void Connection::doSendRandom( int id, int num )
 {
-    LOG("In Connection::doSendRandom(), thread : " << boost::this_thread::get_id() << std::endl);
+    LOG("In Connection::doSendRandom(), thread id: " << boost::this_thread::get_id()
+         << std::endl);
 
-    std::stringstream buf;  // Or send as numbers with htonl() ???
-    buf << " " << id << ":" << num; // << std::endl;
+    if ( not mStopRequested )  // Do we need this???
+    {
 
-    /* We can use socket.async_send() or async_write(socket, ...).
-     * Do we need to protect adding async operations with a mutex? Probably not,
-     * if we used post().
-     * Do we need an output buffer or a queue, or we can count on Boost to copy
-     * and queue the data to be sent???
-     * Or we can send the data synchronously using socket.send() or write().
-     * In this case we don't need a queue. Yes. */
-    mSocket.send(boost::asio::buffer(buf.str()));
+        std::stringstream buf;  // Or send as numbers with htonl() ???
+        buf << " " << id << ":" << num; // << std::endl;
+
+        /* We can use socket.async_send() or async_write(socket, ...).
+         * Do we need to protect adding async operations with a mutex? Probably not,
+         * if we used post().
+         * Do we need an output buffer or a queue, or we can count on Boost to copy
+         * and queue the data to be sent???
+         * Or we can send the data synchronously using socket.send() or write().
+         * In this case we don't need a queue. Yes. */
+        mSocket.send(boost::asio::buffer(buf.str()));
+    }
 }
