@@ -19,6 +19,3 @@ On the server each channel ticks in its own thread. There is also a thread
 per client conneection to manage network send and receive operations and
 interpret commands. All communication is asynchronous, based on events and
 handlers.
-
-ToDo:
-- buffering
