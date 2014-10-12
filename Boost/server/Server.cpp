@@ -473,6 +473,11 @@ void Connection::readyRead(const boost::system::error_code & err, size_t readByt
             mReceiving = false;
         }
     }
+    else if ( strncasecmp("quit", msg.c_str(), 4) == 0 )
+    {
+        doStop();
+        return;
+    }
 
     // Add new async read operation
     if ( not mStopRequested )
