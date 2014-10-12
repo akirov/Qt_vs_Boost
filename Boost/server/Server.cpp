@@ -151,8 +151,6 @@ void Server::incomingConnection( boost::shared_ptr<Connection> connection,
 {
     LOG("New connection!" << std::endl);
 
-    if ( mConn2Threads.size() > 0 ) { Stop(); return; }  // XXX For testing only!
-
     // XXX Check for errors!
 
     // Return if we are about to stop

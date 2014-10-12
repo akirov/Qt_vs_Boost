@@ -6,7 +6,7 @@ in the makefiles.
 Tested with Boost version 1.53 on Cygwin.
 
 ToDo:
-- thread safety
+- check for errors
 - buffering
 - command line options
 - client implementation
