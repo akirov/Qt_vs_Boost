@@ -373,7 +373,7 @@ void Connection::StopRequest()
     LOG("Connection " << this << " StopRequest(), caller thread id : "
          << boost::this_thread::get_id() << std::endl);
 
-    if ( mStarted and (not mConIOService.stopped()) )
+    if ( mStarted /*and (not mConIOService.stopped())*/ )  // Check Boost version for stopped()!
     {
         // Post a request in Connection's io_service to stop the Connection!
         mConIOService.dispatch(boost::bind(&Connection::doStop,  shared_from_this()));  // Or post() ?
@@ -405,11 +405,11 @@ void Connection::doStop()
         }
     }
 
-    // Cancel pending async operations? Does it remve them???
+    // Cancel pending async operations? Does it remove them???
     mSocket.cancel();
 
     // Close the socket (if it is open?)
-    mSocket.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+//  mSocket.shutdown(boost::asio::ip::tcp::socket::shutdown_both);  // Crash in Linux
     mSocket.close();
 
     // Cancel and delete pending async operations somehow???
