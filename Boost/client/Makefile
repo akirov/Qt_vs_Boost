@@ -2,7 +2,8 @@
 CXX=g++
 CFLAGS+=-Wall
 
-BOOST_LIB_SUFFIX=-mt
+#BOOST_LIB_SUFFIX=-mt
+BOOST_LIB_SUFFIX=
 LINK_BOOST=-lboost_system$(BOOST_LIB_SUFFIX) -lboost_thread$(BOOST_LIB_SUFFIX) -lpthread
 
 EXEDIR=../exe
