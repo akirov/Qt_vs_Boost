@@ -37,12 +37,12 @@ class Server : public QTcpServer
             int timeInt=TICK_INTERVAL, QObject* parent=NULL );
     ~Server();
 
-  public Q_SLOTS:        // Callbacks
+  public Q_SLOTS:        // Commands and callbacks (signal receivers).
     void Start();        // Entry point
     void Stop();         // Stop command
     void clientDisconnected(int clId);  // Called when a client is diconnected
 
-  Q_SIGNALS:             // Event publishers. Q_SIGNALS is just 'protected'
+  Q_SIGNALS:             // Event publishers (signal emitters). Q_SIGNALS is just 'protected'
     void finished();     // Inform parent that we are done
     void stopRequest();  // Stop command for the channels and client connections
 

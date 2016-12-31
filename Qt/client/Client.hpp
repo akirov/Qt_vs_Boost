@@ -52,7 +52,7 @@ class Connection : public QObject  // Wraps the socket. Put it inside the client
                 int port=SERVER_PORT, QObject* parent=NULL );
     ~Connection();
 
-  public Q_SLOTS:                  // Event handlers
+  public Q_SLOTS:                  // Commands and callbacks (event handlers)
     void Start();                  // Entry point
     void stopRequested();          // Handles stop request
     void sendToServer(QString);    // Request from the Client to send data

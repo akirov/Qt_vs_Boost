@@ -104,14 +104,14 @@ class Connection : public boost::enable_shared_from_this<Connection>
 
     boost::asio::ip::tcp::socket& getSocket() { return mSocket; }
 
-    void sendRandom( int, int );  // Invoked by the channels to send data via the socket
+    void sendRandom( int, int );  // Invoked by the channels to send data via the socket (Subscriber's update function)
     void readyRead( const boost::system::error_code&, size_t );  // Called when there is data from the client
 
   private:
     void doStop();
     void doSendRandom( int, int );
 
-    std::vector<Channel*> mChannels;
+    std::vector<Channel*> mChannels;  // Or shared_ptr(weak_ptr)?
     Server* mServer;
     boost::asio::io_service mConIOService;
     boost::asio::ip::tcp::socket mSocket;

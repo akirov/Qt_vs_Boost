@@ -8,9 +8,10 @@ QTDIR="/usr/lib/qt4"
 PATH=$QTDIR/bin:${PATH}
 export QTDIR PATH
 
-After making sure that 'qmake' is present, just run 'make' in project's
-root directory (containing client and server subdirs). The executables
-will be in ./exe dir.
+After making sure that 'qmake' is present, just run 'make -f Makefile.manual'
+in project's root directory (containing client and server subdirs).
+Or do "qmake QtClientServer.pro -r" and then "make".
+The executables will be in ./exe dir.
 
 Command line options (port, number of channels, and time interval for
 generating the random numbers):
@@ -19,6 +20,10 @@ Defaults are: port=4321, channels=2, t=1 sec.
 The client needs server host (mandatory) and port (optional, defaults
 to 4321):
 ./client s=localhost p=1234
+
+
+ToDo:
+- use LOG() macro instead of qDebug()
 
 
 Example usage:
