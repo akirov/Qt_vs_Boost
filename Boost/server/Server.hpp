@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
