@@ -1,0 +1,10 @@
+GitHub.txt
+.eclipse/
+.qtc/
+.project
+.cproject
+.settings/
+*.user
+.idea/
+build/
+exe/
