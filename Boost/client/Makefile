@@ -2,12 +2,9 @@
 CXX=g++
 CFLAGS+=-Wall
 
-#BOOST_LIB_SUFFIX=-mt
-BOOST_LIB_SUFFIX=
-LINK_BOOST=-lboost_system$(BOOST_LIB_SUFFIX) -lboost_thread$(BOOST_LIB_SUFFIX) -lpthread
+LINK_BOOST=-L$(BOOST_LOCATION)/lib -lboost_system$(BOOST_LIB_SUFFIX) -lboost_thread$(BOOST_LIB_SUFFIX) -lpthread $(PLATFORM_SPECIFIC_LINKS)
 
-EXEDIR=../exe
-TARGET=$(EXEDIR)/client
+TARGET=$(EXEDIR)client
 
 SOURCES=$(wildcard *.cpp)
 HEADERS=$(wildcard *.hpp)
@@ -23,7 +20,7 @@ $(TARGET): $(OBJS)
 
 
 %.o: %.cpp
-	$(CXX) $(CFLAGS) -c $<
+	$(CXX) $(CFLAGS) -I$(BOOST_LOCATION)/include -c $<
 
 
 $(DEPEND): $(SOURCES) $(HEADERS)
@@ -33,4 +30,4 @@ $(DEPEND): $(SOURCES) $(HEADERS)
 
 
 clean:
-	rm -f $(OBJS) $(DEPEND) $(TARGET)
+	$(RM) $(OBJS) $(DEPEND) $(TARGET) $(TARGET).exe

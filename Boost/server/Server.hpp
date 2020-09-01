@@ -13,6 +13,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
 
 
 #define  SERVER_PORT    4321  // Default port

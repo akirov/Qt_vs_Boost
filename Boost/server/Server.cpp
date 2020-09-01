@@ -3,6 +3,7 @@
 #if 0  // Don't need this.
 #include <boost/signal.hpp>  // Boost 1.55: "Boost.Signals is no longer being maintained and is now deprecated. Please switch to Boost.Signals2. To disable this warning message, define BOOST_SIGNALS_NO_DEPRECATION_WARNING."
 #endif // 0
+#include <unistd.h>
 
 boost::mutex logMutex;
 
