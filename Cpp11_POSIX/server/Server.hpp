@@ -1,5 +1,5 @@
-#ifndef __POSIX_SERVER_HPP__
-#define __POSIX_SERVER_HPP__
+#ifndef __SERVER_HPP__
+#define __SERVER_HPP__
 
 
-#endif // __POSIX_SERVER_HPP__
+#endif // __SERVER_HPP__

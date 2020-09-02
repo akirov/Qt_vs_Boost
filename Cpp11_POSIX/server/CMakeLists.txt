@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1.0)
 
 project(Cpp11_POSIX_Server)
+
+include_directories (${COMMON_DIR})
 
 set(SERVER_SRCS
     Server.hpp
@@ -9,3 +11,5 @@ set(SERVER_SRCS
 )
 
 add_executable(server ${SERVER_SRCS})
+
+target_link_libraries(server common)

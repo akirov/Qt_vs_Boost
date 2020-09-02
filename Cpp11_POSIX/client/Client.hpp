@@ -1,5 +1,5 @@
-#ifndef __POSIX_CLIENT_HPP__
-#define __POSIX_CLIENT_HPP__
+#ifndef __CLIENT_HPP__
+#define __CLIENT_HPP__
 
 
-#endif // __POSIX_CLIENT_HPP__
+#endif // __CLIENT_HPP__
