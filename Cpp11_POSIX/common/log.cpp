@@ -1,3 +1,3 @@
 #include "log.hpp"
 
-std::mutex logMutex;
+std::mutex common::logMutex;
