@@ -19,9 +19,7 @@ Finally, "quit" disconnects the client from the server and exits the client.
 
 Several possible architectures:
 - On the server there can be a TCP connection and a thread per client, where
-control commands are received and streams data is sent. Needs locking or data
-queuing, because data is sent and received in different threads context via
-a single socket.
+control commands are received and streams data is sent. Doesn't scale well.
 - Or, there can be a TCP control connection (clients-to-server) for client
 commands (this is a telnet server basically), and UDP data channels
 (server-to-clients) with receiving sockets on the clients side. UDP data
@@ -30,7 +28,7 @@ looping over the clients, or we can have a dedicated data sending thread with a
 queue (ring buffer) filled by data producer threads and emptied when data is
 sent (or the buffer is full). Since we are sending random numbers we don't care
 about re-ordering and packet drops (which can happen with UDP), otherwise we
-will need sequence numbers or TCP channel for data. On the client side we can
+will need sequence numbers or a TCP channel for data. On the client side we can
 have one control thread and one data thread.
 - We can even have a UDP multicast group per server stream, and the clients
 can join and leave this group.
