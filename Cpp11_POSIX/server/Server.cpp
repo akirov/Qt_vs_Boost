@@ -58,6 +58,8 @@ void Server::StartControlListener()
 void Server::ControlListener()
 {
 
+    // when adding/removing clients do std::unique_lock lock(m_rwMutex)
+
 }
 
 
@@ -87,7 +89,7 @@ void Server::DataStream(unsigned int tickIntervalMs, unsigned int id)
 
 void Server::SendStreamData(u_int32_t channel, u_int32_t value)
 {
-    std::shared_lock lock(m_rwMulex);  // Can be locked by multiple readers (streams)
+    std::shared_lock lock(m_rwMutex);  // Can be locked by multiple readers (streams)
     for( auto& c: m_clients )
     {
         // Send over m_dataSocket

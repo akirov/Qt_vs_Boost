@@ -24,14 +24,13 @@ class Server
     Server(unsigned short srvCtrlPort=DEF_SRV_CTRL_PORT, unsigned short clnDataPort=DEF_CLN_DATA_PORT,
            unsigned int tickIntervalMs=DEF_TICK_INT_MS, unsigned int numStreams=DEF_NUM_STREAMS);
     ~Server();
+    Server(const Server&) = delete;
+    Server& operator =(const Server&) = delete;
 
     void Start();
     void Stop();   // blocks until server stops
 
   private:
-    Server(const Server&) = delete;
-    Server& operator =(const Server&) = delete;
-
     void StartControlListener();
     void ControlListener();
 
@@ -63,7 +62,7 @@ class Server
     std::vector<std::thread> m_streams;
     std::thread m_ctrlThread;
 
-    mutable std::shared_mutex m_rwMulex;  // requires C++17
+    mutable std::shared_mutex m_rwMutex;  // requires C++17
 };
 
 }
