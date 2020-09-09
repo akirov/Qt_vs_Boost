@@ -4,7 +4,7 @@
 
 int main( int argc, char* argv[] )
 {
-    LOG("Starting POSIX server..." << std::endl);
+    LOG("Creating POSIX server..." << std::endl);
 
     // TODO Get ports from the cmd line
 

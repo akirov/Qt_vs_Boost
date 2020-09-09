@@ -24,12 +24,15 @@ Server::Server(unsigned short srvCtrlPort, unsigned short clnDataPort,
 
 Server::~Server()
 {
+    LOG("Destroying the Server..." << std::endl);
     if( ! m_stopRequested ) Stop();
 }
 
 
 void Server::Start()
 {
+    LOG("Starting the Server..." << std::endl);
+
     m_stopRequested = false;
 
     StartDataStreams(m_numStreams);
@@ -40,10 +43,17 @@ void Server::Start()
 
 void Server::Stop()
 {
+    LOG("Stopping the Server..." << std::endl);
+
     m_stopRequested = true;
 
-    m_ctrlThread.join();
-    if( -1 == m_controlSocket ) close(m_controlSocket);
+    if( -1 != m_controlSocket )
+    {
+        close(m_controlSocket);
+        m_controlSocket = -1;
+    }
+
+    if( m_ctrlThread.joinable() ) m_ctrlThread.join();
 
     for(auto& st: m_streams)
     {
@@ -51,7 +61,13 @@ void Server::Stop()
     }
     m_streams.clear();
 
-    if( -1 == m_dataSocket ) close(m_dataSocket);
+    if( -1 != m_dataSocket )
+    {
+        close(m_dataSocket);
+        m_dataSocket = -1;
+    }
+
+    m_clients.clear();
 }
 
 

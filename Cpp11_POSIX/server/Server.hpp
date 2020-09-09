@@ -43,7 +43,7 @@ class Server
     {
         int                  _clientSocket;
         struct sockaddr_in   _clientAddr;
-        std::atomic<bool>    _isReceiving;  // Or a list of subscribed-to stream id-s?
+        bool                 _isReceiving;  // Or a list of subscribed-to stream id-s?
         std::vector<uint8_t> _buffer;  // for received commands (interpreted after endl)
 
     };
