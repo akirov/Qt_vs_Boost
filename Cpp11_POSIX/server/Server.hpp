@@ -36,16 +36,16 @@ class Server
 
     void StartDataStreams(unsigned int numStreams);
     void DataStream(unsigned int tickIntervalMs, unsigned int id);
-    void SendStreamData(u_int32_t channel, u_int32_t value);  // const?
+    void SendStreamData(u_int32_t channel, u_int32_t value) const;  // const?
 
   private:
     struct ClientCtrlCon
     {
         int                  _clientSocket;
         struct sockaddr_in   _clientAddr;
-        std::atomic<bool>    _isReceiving;
-        std::vector<uint8_t> _buffer;
-        // A list of subscribed-to stream id-s?
+        std::atomic<bool>    _isReceiving;  // Or a list of subscribed-to stream id-s?
+        std::vector<uint8_t> _buffer;  // for received commands (interpreted after endl)
+
     };
 
   private:
@@ -56,8 +56,8 @@ class Server
 
     std::atomic<bool> m_stopRequested;  // Or we could use a promise and a future and check it in the threads...
 
-    int m_controlSocket;  // TCP
-    int m_dataSocket;  // UDP
+    mutable int m_controlSocket;  // TCP
+    mutable int m_dataSocket;  // UDP
 
     std::vector<ClientCtrlCon> m_clients;
     std::vector<std::thread> m_streams;

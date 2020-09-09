@@ -11,7 +11,7 @@ namespace common
 
 extern std::mutex logMutex;
 
-// LOG macro is not really in the namespace
+// LOG macro is not really in the namespace. TODO: put the timestamp.
 #define LOG(text) \
     do { \
         std::lock_guard<std::mutex> lock(common::logMutex); \

@@ -49,6 +49,8 @@ void Server::Stop()
     {
         st.join();
     }
+    m_streams.clear();
+
     if( -1 == m_dataSocket ) close(m_dataSocket);
 }
 
@@ -100,12 +102,16 @@ void Server::StartControlListener()
         }
     }
 
-    m_ctrlThread = std::thread(&Server::ControlListener, this);
+    if( ! m_ctrlThread.joinable() )
+    {
+        m_ctrlThread = std::thread(&Server::ControlListener, this);
+    }
 }
 
 
 void Server::ControlListener()
 {
+    LOG("In ControlListener thread " << std::this_thread::get_id() << std::endl);
 
     // when adding/removing clients do std::unique_lock lock(m_rwMutex)
 
@@ -114,12 +120,18 @@ void Server::ControlListener()
 
 void Server::StartDataStreams(unsigned int numStreams)
 {
-    // Create m_dataSocket
-
-    for( unsigned int i=0; i<numStreams; i++ )
+    if( -1 == m_clnDataPort )
     {
-        m_streams.emplace_back(std::thread(&Server::DataStream, this, m_tickIntervalMs, i+1));
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_tickIntervalMs/numStreams));
+        // Create m_dataSocket
+    }
+
+    if( m_streams.size() == 0 )  // Otherwise the streams are already running
+    {
+        for( unsigned int i=0; i<numStreams; i++ )
+        {
+            m_streams.emplace_back(std::thread(&Server::DataStream, this, m_tickIntervalMs, i+1));
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_tickIntervalMs/numStreams));
+        }
     }
 }
 
@@ -139,12 +151,12 @@ void Server::DataStream(unsigned int tickIntervalMs, unsigned int id)
 }
 
 
-void Server::SendStreamData(u_int32_t channel, u_int32_t value)
+void Server::SendStreamData(u_int32_t channel, u_int32_t value) const
 {
     /* Sends data in stream thread context. Another option is just to push the data
      * into a ring buffer and wake a dedicated sending thread... */
-    std::shared_lock lock(m_rwMutex);  // Can be locked by multiple readers (streams)
-    for( auto& c: m_clients )
+    std::shared_lock lock(m_rwMutex);  // Can be locked by multiple readers (streams) simultaneously
+    for( const auto& c: m_clients )
     {
         if( c._isReceiving )
             ; // Send over m_dataSocket
