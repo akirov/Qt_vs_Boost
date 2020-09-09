@@ -1,6 +1,7 @@
 #ifndef __SERVER_HPP__
 #define __SERVER_HPP__
 
+#include "common.hpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <thread>
@@ -9,10 +10,9 @@
 #include <shared_mutex>
 #include <vector>
 
-#define DEF_SRV_CTRL_PORT 20000
-#define DEF_CLN_DATA_PORT 30000
 #define DEF_TICK_INT_MS 1000
 #define DEF_NUM_STREAMS 2
+#define MAX_PENDING_CONNECTIONS 10
 
 
 namespace server
@@ -43,13 +43,14 @@ class Server
     {
         int                  _clientSocket;
         struct sockaddr_in   _clientAddr;
-        std::atomic<bool>    _streamingStarted;
+        std::atomic<bool>    _isReceiving;
         std::vector<uint8_t> _buffer;
+        // A list of subscribed-to stream id-s?
     };
 
   private:
-    unsigned short m_srvCtrlPort;
-    unsigned short m_clnDataPort;
+    uint16_t m_srvCtrlPort;
+    uint16_t m_clnDataPort;
     unsigned int m_tickIntervalMs;
     unsigned int m_numStreams;
 

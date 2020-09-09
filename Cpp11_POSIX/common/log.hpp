@@ -11,6 +11,7 @@ namespace common
 
 extern std::mutex logMutex;
 
+// LOG macro is not really in the namespace
 #define LOG(text) \
     do { \
         std::lock_guard<std::mutex> lock(common::logMutex); \
