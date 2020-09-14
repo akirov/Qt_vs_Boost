@@ -13,6 +13,7 @@
 #define DEF_TICK_INT_MS 1000
 #define DEF_NUM_STREAMS 2
 #define MAX_PENDING_CONNECTIONS 10
+#define CTRL_BUF_SIZE 1024
 
 
 namespace server
@@ -41,11 +42,18 @@ class Server
   private:
     struct ClientCtrlCon
     {
+        ClientCtrlCon() :
+                _clientSocket(-1),
+                _clientAddr{0},
+                _isReceiving(false),
+                _buffer(CTRL_BUF_SIZE)
+        {
+        }
+
         int                  _clientSocket;
         struct sockaddr_in   _clientAddr;
         bool                 _isReceiving;  // Or a list of subscribed-to stream id-s?
         std::vector<uint8_t> _buffer;  // for received commands (interpreted after endl)
-
     };
 
   private:
@@ -56,8 +64,8 @@ class Server
 
     std::atomic<bool> m_stopRequested;  // Or we could use a promise and a future and check it in the threads...
 
-    mutable int m_controlSocket;  // TCP
-    mutable int m_dataSocket;  // UDP
+    mutable int m_controlSocket;
+    mutable int m_dataSocket;
 
     std::vector<ClientCtrlCon> m_clients;
     std::vector<std::thread> m_streams;

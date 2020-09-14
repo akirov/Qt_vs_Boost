@@ -76,7 +76,7 @@ void Server::StartControlListener()
     if( -1 == m_controlSocket )
     {
         // We can try-catch and set std::exception_ptr to std::current_exception() in catch, if not in main thread
-        m_controlSocket = socket(AF_INET , SOCK_STREAM , 0);
+        m_controlSocket = socket(AF_INET , SOCK_STREAM , 0);  // TCP
         if( -1 == m_controlSocket )
         {
             std::string errorStr = std::strerror(errno);
@@ -139,6 +139,14 @@ void Server::StartDataStreams(unsigned int numStreams)
     if( -1 == m_clnDataPort )
     {
         // Create m_dataSocket
+        m_clnDataPort = socket(AF_INET, SOCK_DGRAM, 0);  // UDP
+        if( -1 == m_clnDataPort )
+        {
+            std::string errorStr = std::strerror(errno);
+            LOG("Can't create the data socket, error: " << errorStr);
+            throw std::runtime_error(errorStr);
+        }
+
     }
 
     if( m_streams.size() == 0 )  // Otherwise the streams are already running
