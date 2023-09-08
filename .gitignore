@@ -6,5 +6,6 @@ misc.txt
 .settings/
 *.user
 .idea/
+.ide/
 build/
 exe/
