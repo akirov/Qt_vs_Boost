@@ -7,5 +7,6 @@ misc.txt
 *.user
 .idea/
 .ide/
+.vscode/
 build/
 exe/
